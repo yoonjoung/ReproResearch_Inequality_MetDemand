@@ -6,7 +6,7 @@ date<-as.Date(Sys.time(	), format='%d%b%Y')
 
 This is markdown file to reproduce analysis and results for a published paper: __Monitoring Progress in Equality for the Sustainable Development Goals: A Case Study of Meeting Demand for Family Planning__ (_Global Health Science and Practice_ 2018 Jun 29;6(2):390-401). The abstract, link to the complete paper, and full publication information is [available here](https://www.ncbi.nlm.nih.gov/pubmed/29959277).  
 
-There are three sections in this document for: accessing public data used for the study; preparing the analysis data file (i.e., data processing/manipulation); and conducting analysis. Analysis section contains code that is only relevant to reproduce results presented in the paper. The paper was prepared using __Stata__ and equivalent Stata do file is available at [GitHub](https://github.com/yoonjoung/ReproResearch_Inequality_MetDemand). 
+There are three sections in this document for: accessing public data used for the study; preparing the analysis data file (i.e., data processing/manipulation); and conducting analysis. Analysis section contains code that is only relevant to reproduce results presented in the paper. The paper was prepared using __Stata__, and a Stata do file to reproduce the results is available at [GitHub](https://github.com/yoonjoung/ReproResearch_Inequality_MetDemand). 
 ```{r, results="hide"}
 "R code is shown in a gray box"
 ```
@@ -46,7 +46,7 @@ suppressPackageStartupMessages(library(dplyr))
 
 #call and save individual indicator data here
 #an example: FP_CUSM_W_ANY
-url<-("http://api.dhsprogram.com/rest/dhs/data?f=json&indicatorIds=FP_CUSM_W_ANY&breakdown=all&perpage=20000&pagenum=1&APIkey=USAAID-113824")
+url<-("http://api.dhsprogram.com/rest/dhs/data?f=json&indicatorIds=FP_CUSM_W_ANY&breakdown=all&perpage=1000&pagenum=1")
 jsondata<-fromJSON(url) 
 dta<-data.table(jsondata$Data)
 names(dta)
@@ -63,49 +63,7 @@ Then, merge all sixteen datasets into one dataset.
 #merge all 16 indicator datasets here
 ```
 
-```
-{r, echo=FALSE}
-                
-                HOW DO I DO MACRO in R ??? 
-                
-#VAR<-c("FP_CUSA_W_MOD", "FP_CUSM_W_MOD", "FP_CUSU_W_MOD", "FP_CUSA_W_ANY", "FP_CUSM_W_ANY", "FP_CUSU_W_ANY", "FP_NADA_W_UNT", "FP_NADM_W_UNT", "FP_NADU_W_UNT")
-
-url<-("http://api.dhsprogram.com/rest/dhs/data?f=json&indicatorIds=FP_CUSM_W_ANY&breakdown=all&perpage=20000&pagenum=1&APIkey=USAAID-113824")
-jsondata<-fromJSON(url) 
-dta<-data.table(jsondata$Data)
-dta<-select(dta, DHS_CountryCode, CountryName, 
-            SurveyId, SurveyYearLabel, SurveyType, SurveyYear, 
-            Value, CharacteristicCategory, CharacteristicLabel)    
-API_FP_CUSM_W_ANY<- dta %>% rename(FP_CUSM_W_ANY=Value)
-dim(API_FP_CUSM_W_ANY)
-
-VAR<-c("FP_CUSM_W_ANY")
-url<-("http://api.dhsprogram.com/rest/dhs/data?f=json&indicatorIds=VAR&breakdown=all&perpage=20000&pagenum=1&APIkey=USAAID-113824")
-jsondata<-fromJSON(url) 
-dta<-data.table(jsondata$Data)
-    dim(dta)
-    names(dta)
-dta<-select(dta, DHS_CountryCode, CountryName, 
-            SurveyId, SurveyYearLabel, SurveyType, SurveyYear, 
-            Value, CharacteristicCategory, CharacteristicLabel)    
-API_VAR<- dta %>% rename(VAR=Value)
-dim(API_VAR)
-
-
-VAR<-quo(FP_CUSM_W_ANY)
-url<-("http://api.dhsprogram.com/rest/dhs/data?f=json&indicatorIds=!!VAR&breakdown=all&perpage=20000&pagenum=1&APIkey=USAAID-113824")
-jsondata<-fromJSON(url) 
-dta<-data.table(jsondata$Data)
-    dim(dta)
-    names(dta)
-dta<-select(dta, DHS_CountryCode, CountryName, 
-            SurveyId, SurveyYearLabel, SurveyType, SurveyYear, 
-            Value, CharacteristicCategory, CharacteristicLabel)    
-API_!!VAR<- dta %>% rename(!!VAR=Value)
-dim(API_!!VAR)
-```
-
-Currently, more efficient looping approach code is being explored in order to complete this process. Until it's resolved, use a dataset created, using __Stata__ following steps described above. See the GitHub repository for the Stata do file. 
+Currently, looping code is being explored in order to complete this process more efficiently. Until it's resolved, use a dataset created, using __Stata__ following steps described above. See the GitHub repository for the Stata do file.
 ```{r apidatafromstata, results="hide"}
 suppressPackageStartupMessages(library (haven)) 
 
@@ -170,24 +128,9 @@ label(dta$type) <- "type of survey"
 Create regional variables, following UN classification. An easy approach is to get the classification by calling World Development Indicators API, which has first-level classification. For the lower (i.e., more detailed) level classification, see UN methodology here: (https://unstats.un.org/unsd/methodology/m49/)
 
 ```
-THIS Chuck needs to be re-done. FIND api data that include UN regional classifications (lower level) for each country!!! where is it???  
-
-When WB WDI data are called via wbopendata in Stata, at least there's the first-level regional classification. But, not via wbstats!!! 
+THIS Chuck with WB WDI API needs to be re-done. When WB WDI data are called via wbopendata in Stata, at least there's the first-level regional classification. But, not via wbstats... FIND api data that include UN regional classifications (first and lwoer level) for each country!!! where is it???  Alternatively, and until then, see below. 
 ```
-```
-{r regionwb, echo=FALSE, results="hide", comment=NA}
-#install.packages("wbstats")
-library(wbstats)
-str(wb_cachelist, max.level = 1)
-dtatemp <- wb(indicator = "SP.POP.TOTL", startdate = 2000, enddate = 2000)
-dim(dtatemp)
-
-dtatemp <- wb(country = c("ABW","AF", "SSF", "ECA"),
-               indicator = "SP.POP.TOTL", startdate = 2012, enddate = 2012)
-dim(dtatemp)
-``` 
-
-```{r region, echo=FALSE, results="hide", comment=NA}
+```{r region, results="hide", comment=NA}
 dta<-mutate(dta,
 	region2=NA,
 	region2 = ifelse((country=="Burundi" | 
@@ -304,7 +247,6 @@ dta<- mutate(dta,
 ```
 
 #### 2.4. Collapse to the survey level data and create disparity measures 
-Use dplyr tapply to get survey-level data, from survey-subgroup level data. Then create disparity measures. All disparity measures are among women in union, except disparity by union status, which is among all women. Disparity by age or administrative unit represents the largest possible absolute gap among all subgroups. See the paer for details.  
 ```{r collapse, results="hide", comment=NA, warning=FALSE }
 # prep before collapse
 dtasum<- mutate(dta, 
@@ -356,7 +298,7 @@ dtasum<- mutate(dtasum,
 
 # merge back country name, region, etc. 
 dtasumlist<- dta %>% 
-    select(surveyid, country, group, year, type) %>% 
+    select(surveyid, country, region2, group, year, type) %>% 
     filter(group=="Total") %>% 
     select( -starts_with("group"))
 
@@ -375,7 +317,7 @@ dtasum<-dtasum %>%
         filter( is.na(demandmet_m_married)==FALSE)
 ```
 
-Also, for the purpose of reproducing the results, drop newly released surveys since September 2017 to reproduce the results. They are likely surveys conducted in 2014, 2015 or later. See Supplement 1 for the list of surveys incldued in the study (http://www.ghspjournal.org/content/suppl/2018/06/29/GHSP-D-18-00012.DCSupplemental).  
+Also, for the purpose of reproducing the results, drop newly released surveys since September 2017 to reproduce the results. They are likely surveys conducted in 2014, 2015 or later. See Supplement 1 for the list of surveys included in the study (http://www.ghspjournal.org/content/suppl/2018/06/29/GHSP-D-18-00012.DCSupplemental).  
 ```{r select2, results="hide", comment=NA}
 dtasum<-mutate(dtasum, 
         newsurvey=
@@ -437,7 +379,7 @@ varlist<-c( "gap_demandmet_m_married_edu",  "gap_demandmet_m_married_hhw",
 			"gap_demandmet_m_married_rurb", "gap_demandmet_m_mar", 
 			"gap2_demandmet_m_married_age", "gap2_demandmet_m_married_reg")
 
-dtafig<-dtasum %>% filter(latest==1) %>% select(varlist) 
+dtafig<-dtasum %>% filter(latest==1) %>% select(country, varlist) 
 
 dtafiglong<-gather(dtafig, group, gap, starts_with("gap"))
 dtafiglong<-dtafiglong %>% 
@@ -455,36 +397,15 @@ suppressPackageStartupMessages(library(ggplot2))
 
 ggplot(dtafiglong, aes(group, gap))+
     geom_boxplot()+
+    geom_hline(yintercept = 0, color="red")+
     labs(y="% Point Difference in Met Demand")
-
-#hline=0
 ```
 
 #### 3.2. Table  
-```
-{r table}
-summary(dtasum$gap_demandmet_m_married_hhw)  
-summary(dtasum$year)
-
-lm(gap_demandmet_m_married_hhw ~ year, data=dtasum)
-
-
-install.packages("pglm")
-suppressPackageStartupMessages(library(pglm))
-
-zz <- pglm(gap_demandmet_m_married_hhw ~ year, 
-          data=dtasum, 
-          index = c("country","year"), method = "within", 
-          effect = "twoways", family=normal)
-summary(zz)
-
+[The table](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6024626/table/tabU1/) presents "Estimated Annual Changes in Disparity in Family Planning Demand Met With Modern Methods Between the Most- and Least-Advantaged Subgroupsa by Background Characteristic (Percentage-Point Change per Year)". 
 
 ```
-
-```	
-*** Table: trends of disparity  
-use ReproResearch_Inequality_Metdemand, clear
-	 
+WORK-IN_PROGRESS in r... 
 	egen countryid=group(country)
 	#delimit; 		
 	global varlist "gap_demandmet_m_married_edu 
@@ -503,61 +424,79 @@ use ReproResearch_Inequality_Metdemand, clear
 
 #### 3.3. Figure 2
 [Figure 2](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6024626/figure/f02/) shows "Trends in National-Level Family Planning Demand With Modern Methods (%) and Disparity by Wealth (Percentage Point), by Region and Country". 
-```
-	#delimit;
-	twoway scatter gap_demandmet_m_married_hhw demandmet_m_married if (region2=="Middle Africa" | region2=="Western Africa"), 
-		by(country, 
-			title("Central and Western Africa")
-			col(6) note(""))
-		connect(l) msize(small) mlabel(year) mlabsize(small)
-		xline(75, lpattern(-) lcolor(black))
-		yline(0, lpattern(-) lcolor(black))
-		ytitle(	"Difference Between Wealth Quintiles (percentage point)", size(small))
-		xtitle(	"National Average (%)", size(small))	
-		ylab(-20(20)60) xlab(0(20)100)
-		xsize(9) ysize(3.5)	
-		;
-		#delimit cr
-	gr_edit .style.editstyle boxstyle(shadestyle(color(white))) editcopy	
-	gr_edit .plotregion1.subtitle[1].style.editstyle fillcolor(white) linestyle(color(white)) size(medlarge)  editcopy		
-	
-	sort year
-	#delimit;
-	twoway scatter gap_demandmet_m_married_hhw demandmet_m_married if (region2=="Eastern Africa" | region2=="Southern Africa"), 
-		by(country, 
-			title("Southern and Eastern Africa")
-			col(6) note(""))
-		connect(l) msize(small) mlabel(year) mlabsize(small)
-		xline(75, lpattern(-) lcolor(black))
-		yline(0, lpattern(-) lcolor(black))
-		ytitle(	"Difference Between Wealth Quintiles (percentage point)", size(small))
-		xtitle(	"National Average (%)", size(small))	
-		ylab(-20(20)60) xlab(0(20)100)
-		xsize(9) ysize(3.5)	
-		;
-		#delimit cr
-	gr_edit .style.editstyle boxstyle(shadestyle(color(white))) editcopy	
-	gr_edit .plotregion1.subtitle[1].style.editstyle fillcolor(white) linestyle(color(white)) size(medlarge)  editcopy		
-	
-	sort year
-	#delimit;
-	twoway scatter gap_demandmet_m_married_hhw demandmet_m_married if region~="Sub-Saharan Africa", 
-		by(country, 
-			title("Other Region")
-			col(6) note(""))
-		connect(l) msize(small) mlabel(year) mlabsize(small)
-		xline(75, lpattern(-) lcolor(black))
-		yline(0, lpattern(-) lcolor(black))
-		ytitle(	"Difference Between Wealth Quintiles (percentage point)", size(small))
-		xtitle(	"National Average (%)", size(small))	
-		ylab(-20(20)60) xlab(0(20)100)
-		xsize(9) ysize(4.5)	
-		;
-		#delimit cr
+```{r figure2data, warning=FALSE, comment=NA, results="hide"}
+dtafig<-dtasum %>% 
+    select(country, surveyid, year, demandmet_m_married,
+           gap_demandmet_m_married_hhw, region2)
+dtafig$region3<-"Other Region"
+dtafig<-dtafig %>% mutate(
+        region3= ifelse(
+                (region2=="Middle Africa" | region2=="Western Africa"),
+                "Central and Western Africa", 
+                region3), 	    
+        region3= ifelse(
+                (region2=="Eastern Africa" | region2=="Southern Africa"),
+                "Southern and Eastern Africa", 
+                region3),
+        region3= ifelse(
+                (is.na(region3)==TRUE),
+                "Other Regions", 
+                region3)
+    )
 
+dtafig1 <- dtafig%>% filter(region3=="Central and Western Africa")
+dtafig2 <- dtafig%>% filter(region3=="Southern and Eastern Africa")
+dtafig3 <- dtafig%>% filter(region3=="Other Regions")
+```
+```{r figure2, warning=NA, fig.width=10}
+ggplot(dtafig1, aes(demandmet_m_married, gap_demandmet_m_married_hhw)) +             
+    geom_point()+
+    geom_line() +
+    geom_text(aes(label=year), size=2, position = position_stack(0.9) ) +
+    facet_wrap(~country, ncol=6) +
+    geom_hline(yintercept = 0, color="red", linetype="dashed")+
+    geom_vline(xintercept = 75, color="red", linetype="dashed")+
+    labs(y=	"Difference Between Wealth Quintiles \n(percentage point)",
+	     x= "National Average (%)") +
+    ggtitle("Central and Western Africa") +
+    theme(strip.text = element_text(size=rel(0.7)),
+          legend.text = element_text(size=rel(0.7)),
+          axis.text.x = element_text(size=rel(0.7)),
+          axis.text.y = element_text(size=rel(0.7)))
+
+ggplot(dtafig2, aes(demandmet_m_married, gap_demandmet_m_married_hhw)) +             
+    geom_point()+
+    geom_line() +
+    geom_text(aes(label=year), size=2, position = position_stack(0.9) ) +
+    facet_wrap(~country, ncol=6) +
+    geom_hline(yintercept = 0, color="red", linetype="dashed")+
+    geom_vline(xintercept = 75, color="red", linetype="dashed")+
+    labs(y=	"Difference Between Wealth Quintiles \n(percentage point)",
+	     x= "National Average (%)") +
+    ggtitle("Southern and Eastern Africa") +
+    theme(strip.text = element_text(size=rel(0.7)),
+          legend.text = element_text(size=rel(0.7)),
+          axis.text.x = element_text(size=rel(0.7)),
+          axis.text.y = element_text(size=rel(0.7)))
+
+ggplot(dtafig3, aes(demandmet_m_married, gap_demandmet_m_married_hhw)) +             
+    geom_point()+
+    geom_line() +
+    geom_text(aes(label=year), size=2, position = position_stack(0.9) ) +
+    facet_wrap(~country, ncol=6) +
+    geom_hline(yintercept = 0, color="red", linetype="dashed")+
+    geom_vline(xintercept = 75, color="red", linetype="dashed")+    
+    labs(y=	"Difference Between Wealth Quintiles \n(percentage point)",
+	     x= "National Average (%)") +
+    ggtitle("Other Regions") +
+    theme(strip.text = element_text(size=rel(0.7)),
+          legend.text = element_text(size=rel(0.7)),
+          axis.text.x = element_text(size=rel(0.7)),
+          axis.text.y = element_text(size=rel(0.7)))
 ```	
+
 #### 3.4. Figure 3
-[Figure 3](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6024626/figure/f03/) presetns "Illustrative Examples of Varying Trends of Family Planning Demand Met With Modern Methods (%), Nationally and by Household Wealth Quintile". 
+[Figure 3](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6024626/figure/f03/) presents "Illustrative Examples of Varying Trends of Family Planning Demand Met With Modern Methods (%), Nationally and by Household Wealth Quintile". 
 
 ```{r figure3data, warning=FALSE, results="hide"}
 dtafig<-dtasum %>% filter(country=="Cameroon" | country=="Ethiopia" 
@@ -594,7 +533,7 @@ varlist<-c( "gap_demandmet_m_married_edu",  "gap_demandmet_m_married_hhw",
 
 dtafig<-dtasum %>% 
         filter(latest==1)%>%
-        select(varlist) 
+        select(country, varlist) 
 ```
 ```{r figure4, warning=FALSE}
 suppressPackageStartupMessages(library(GGally))
@@ -604,6 +543,7 @@ ggpairs(dtafig, columns=varlist,
 
 #### 3.6. Figure 5
 [Figure 5](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6024626/figure/f05/) shows "Changes in the Distribution of Educational Attainment Among Female Population 6 Years and Older". Graph area varies by the number of surveys and intervals between them.
+
 ```{r figure5data, warning=FALSE, results="hide"}
 suppressPackageStartupMessages(library(tidyr))
 dtafig<-dtasum %>% 
@@ -631,12 +571,12 @@ dtafiglong$level <- factor(dtafiglong$level,
 ```{r figure5, warning=FALSE, fig.height=7, fig.width=10}
 ggplot(dtafiglong, aes(year, percent, fill=level)) + 
     geom_area()+
-    scale_fill_manual(values=c("#006837", "#31a354", "#78c679", "#045a8d", "#2b8cbe", "#b30000"))+
+    scale_fill_manual(values=c("#006837", "#31a354", "#78c679", 
+                               "#08519c", "#3182bd", "#b30000"))+
     facet_wrap(~country, ncol=8)+
     labs(y="Cumulative Distribution of Female Population (%)")+
     theme(strip.text = element_text(size=rel(0.7)),
           legend.text = element_text(size=rel(0.7))
           )
-          
 ```
-
+Note: In Figure 5 of the paper, data came from any countries that have two or more surveys. That includes a country like Burundi, which is not a study country for the paper. 
