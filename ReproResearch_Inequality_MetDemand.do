@@ -153,8 +153,6 @@ use API_FP_CUSA_W_ANY.dta, clear
 		sort surveyid group grouplabel
 	}
 
-	replace country="DRC" if country=="Congo Democratic Republic"
-	
 sort country 	
 save DHSAPI_inequality_metdemand, replace	
 */
@@ -209,6 +207,8 @@ use DHSAPI_inequality_metdemand, clear
 	egen countregion=count(temp), by(surveyid)	
 		lab var countregion "Number of regions per survey" 
 		drop temp
+		
+	replace country="DRC" if country=="Congo Democratic Republic"
 
 sort country 	
 save temp, replace	
