@@ -123,7 +123,7 @@ label(dta$type) <- "type of survey"
 
 #### 2.2. Create regional variables
 
-Create regional variables, following UN Statistics Division's classification: the M49 standard (https://unstats.un.org/unsd/methodology/m49/). Here, we scrape the webpage to get the data table of countries by geographic regions and tidy up the scraped data table.  
+Create regional variables, following UN Statistics Division's classification: the M49 standard (https://unstats.un.org/unsd/methodology/m49/). Here, we scrape the webpage to get the data table of countries by geographic regions (circled with green in Figure 1) and tidy up the scraped data table.  
 
 Figure 1. Target elements to scrape from the UN Statistics Division's webpage 
 ![Alt text](/Users/YoonJoung Choi/Dropbox/0 Project/ReproResearch_INequality_Metdemand/UNSDtable.png)
