@@ -67,14 +67,14 @@ suppressPackageStartupMessages(library (haven))
 
 setwd("C:/Users/YoonJoung Choi/Dropbox/0 Project/ReproResearch_Inequality_MetDemand")
 
-dta<-data.frame(read_dta("DHSAPI_inequality_metdemand.dta"))
+dtaapi<-data.frame(read_dta("DHSAPI_inequality_metdemand.dta"))
 ```
 
 ```{r, echo=FALSE,results="hide"}
-obs<-nrow(dta)
-surveys<-length(unique(dta$surveyid))
+obs<-nrow(dtaapi)
+surveys<-length(unique(dtaapi$surveyid))
 ```
-As of `r date`, the API calls generated `r obs` observations - i.e., subgroup-specific estimates - from `r surveys` surveys. Sort the data by surveyid, group, and grouplabel to explore the structure further.    
+As of April 5, 2019, the API calls generated `r obs` observations - i.e., subgroup-specific estimates - from `r surveys` surveys. Sort the data by surveyid, group, and grouplabel to explore the structure further.    
 
 ## 2. Data Management 
 
@@ -86,7 +86,7 @@ suppressPackageStartupMessages(library(dplyr))
 suppressPackageStartupMessages(library(Hmisc))
 
 #rename var
-dta<- dta %>% rename (cpr_all	=	FP_CUSA_W_ANY)
+dta<- dtaapi %>% rename (cpr_all	=	FP_CUSA_W_ANY)
 dta<- dta %>% rename (cpr_married	=	FP_CUSM_W_ANY)
 dta<- dta %>% rename (cpr_unmarried	=	FP_CUSU_W_ANY)
 dta<- dta %>% rename (mcpr_all	=	FP_CUSA_W_MOD)
@@ -123,32 +123,76 @@ label(dta$type) <- "type of survey"
 
 #### 2.2. Create regional variables
 
-Create regional variables, following UN classification. An easy approach is to get the classification by calling World Development Indicators API, which has first-level classification. For the lower (i.e., more detailed) level classification, see UN methodology here: (https://unstats.un.org/unsd/methodology/m49/)
+Create regional variables, following UN Statistics Division's classification: the M49 standard (https://unstats.un.org/unsd/methodology/m49/). Here, we scrape the webpage to get the data table of countries by geographic regions and tidy up the scraped data table.  
 
+Figure 1. Target elements to scrape from the UN Statistics Division's webpage 
+![Alt text](/Users/YoonJoung Choi/Dropbox/0 Project/ReproResearch_INequality_Metdemand/UNSDtable.png)
+
+```{r regionUNSD, results="hide", comment=NA}
+suppressPackageStartupMessages(library(rvest))
+# data table scraping from the web
+ctry_UNSD<-read_html("https://unstats.un.org/unsd/methodology/m49/") %>% 
+    html_nodes("table") %>%
+    .[[7]] %>% 
+    html_table(header = TRUE)     
+# tidy up
+ctry_UNSD<-ctry_UNSD %>%
+    rename (country	=	"Country or Area") %>% 
+    rename (M49	=	"M49 code") %>% 
+    rename (ISOalpha3	=	"ISO-alpha3 code") %>% 
+    select(country, M49, ISOalpha3) 
+ctry_UNSD$country<-as.character(ctry_UNSD$country)
+ctry_UNSD<-ctry_UNSD %>% 
+    mutate(
+    UNSDsubregion=country,
+    UNSDsubregion=ifelse(ISOalpha3!="", "", UNSDsubregion)
+    )
+for (i in 1:nrow(ctry_UNSD)){
+    if (ctry_UNSD[i,4]==""){
+    ctry_UNSD[i,4]=ctry_UNSD[i-1,4]
+    }}
+# Keep only country rows and replace country names as needed for merge
+ctry_UNSD<-ctry_UNSD %>% 
+    filter(ISOalpha3!="") %>% 
+    select(country, UNSDsubregion) %>% 
+    mutate(
+    country = ifelse(country == "Bolivia (Plurinational State of)", "Bolivia", country) ,
+    country = ifelse(country == "Cabo Verde", "Cape Verde", country) , 
+    country = ifelse(country == "Democratic Republic of the Congo", "Congo Democratic Republic", country) ,
+    country = ifelse(country == "Côte d'Ivoire", "Cote d'Ivoire", country) ,
+    country = ifelse(country == "Kyrgyzstan", "Kyrgyz Republic", country) , 
+    country = ifelse(country == "Republic of Moldova", "Moldova", country) , 
+    country = ifelse(country == "United Republic of Tanzania", "Tanzania", country) ,
+    country = ifelse(country == "Viet Nam", "Vietnam", country) 
+    )
+
+label(ctry_UNSD$UNSDsubregion) <- "Sub-region, UNSD Methodology 49"
 ```
-THIS Chuck with WB WDI API needs to be re-done. When WB WDI data are called via wbopendata in Stata, at least there's the first-level regional classification. But, not via wbstats... FIND api data that include UN regional classifications (first and lwoer level) for each country!!! where is it???  Alternatively, and until then, use sub-regional classification from the DHS Program. 
+
+Then, merge the two data frames: ctry_UNSD & dta (cleaned DHS API data). 
+ 
+```{r regionmerge, results="hide", warning=FALSE}
+# inspect and confirm "country" variable
+length(unique(dta$country)) #number of unique countries
+length(unique(ctry_UNSD$country)) #number of unique countries
+
+# merge UNSD country list with the anaysis data 
+dim(dta)
+dim(ctry_UNSD)
+dta<-left_join(dta, ctry_UNSD, by = "country")
+dim(dta)
+length(unique(dta$surveyid)) #number of unique surveys
+length(unique(dta$country)) #number of unique countries
+
+# check all countries now have UNSDsubregion, 
+# especially Cote d'Ivoire, which is still not merging correctly... why??? 
+table(dta$UNSDsubregion, exclude = NULL)
+    test<-filter(dta, UNSDsubregion=="Western Africa")
+    table(test$country)
+dta<- mutate(dta, 
+    UNSDsubregion=ifelse(country=="Cote d'Ivoire", "Western Africa", UNSDsubregion) )	   
 ```
-```{r region, results="hide", comment=NA}
-suppressPackageStartupMessages(library(jsonlite)) 
-suppressPackageStartupMessages(library(data.table))
-suppressPackageStartupMessages(library(dplyr))
-
-# get sub-regional classification from DHS
-url<-("http://api.dhsprogram.com/rest/dhs/countries?f=json")
-jsondata<-fromJSON(url) 
-dtaregion<-data.table(jsondata$Data)
-    names(dtaregion)
-dtaregion<-select(dtaregion, CountryName, SubregionName)
-    dim(dtaregion)
-    names(dtaregion)
-    table(dtaregion$SubregionName)
-dtaregion<- dtaregion %>% rename (country	=	CountryName)
-dtaregion<- dtaregion %>% rename (region2	=	SubregionName)
-
-dta<-full_join(dtaregion, dta, by = "country")
-```
-
-
+   
 #### 2.3. Create lowest vs. highest variables in each group
 ```{r genvar, results="hide", comment=NA}
 # min & max: by SES order 
@@ -232,8 +276,8 @@ dtasum3<- dtasum %>%
 dim(dtasum3)
 names(dtasum3)
 
-dtasum<-full_join(dtasum1, dtasum2, by = "surveyid")   
-dtasum<-full_join(dtasum, dtasum3, by = "surveyid")   
+dtasum<-left_join(dtasum1, dtasum2, by = "surveyid")   
+dtasum<-left_join(dtasum, dtasum3, by = "surveyid")   
 #investgate join_all and/or reduce 
 
 dim(dtasum)
@@ -252,16 +296,18 @@ dtasum<- mutate(dtasum,
 
 # merge back country name, region, etc. 
 dtasumlist<- dta %>% 
-    select(surveyid, country, region2, group, year, type) %>% 
+    select(surveyid, country, UNSDsubregion, group, year, type) %>% 
     filter(group=="Total") %>% 
     select( -starts_with("group"))
 
+    test<-filter(dta, UNSDsubregion=="Western Africa")
+    table(test$country)
 dtasum<-full_join(dtasumlist, dtasum, by = "surveyid")
 obs<-nrow(dtasum)
-```		
+```    
 
 #### 2.5. Keep analysis sample
-Now the dataset, __dtasum__, has `r obs` observations, at the survey level. But, the study was conducted in a subset - i.e., DHS surveys in countries where 2 or more DHS surveys have been conducted, 231 surveys from 55 countries (as of September, 2017).    
+Now the dataset, __dtasum__, has `r obs` observations, at the survey level. But, the study was conducted in a subset - i.e., DHS surveys in countries where 2 or more DHS surveys have been conducted, 213 surveys from 55 countries (as of September, 2017).    
 
 First, keep only DHS surveys (e.g., not AIS) since 1990. 
 ```{r select1, results="hide", comment=NA}
@@ -269,6 +315,8 @@ dtasum<-dtasum %>%
         filter(year>=1990) %>% 
         filter(type=="DHS") %>% 
         filter( is.na(demandmet_m_married)==FALSE)
+nrow(dtasum) #number of unique surveys
+length(unique(dtasum$country)) #number of unique countries
 ```
 
 Also, for the purpose of reproducing the results, drop newly released surveys since September 2017 to reproduce the results. They are likely surveys conducted in 2014, 2015 or later. See Supplement 1 for the list of surveys included in the study (http://www.ghspjournal.org/content/suppl/2018/06/29/GHSP-D-18-00012.DCSupplemental).  
@@ -286,6 +334,8 @@ dtasum<-mutate(dtasum,
 				            & surveyid!="SN2014DHS" & surveyid!="TD2014DHS"))
     )
 dtasum<-dtasum %>% filter(newsurvey==0)
+nrow(dtasum) #number of unique surveys
+length(unique(dtasum$country)) #number of unique countries
 ```
 
 Then, finally, keep only surveys from countries that had 2 or more surveys 
@@ -381,24 +431,27 @@ WORK-IN_PROGRESS in r...
 ```{r figure2data, warning=FALSE, comment=NA, results="hide"}
 dtafig<-dtasum %>% 
     select(country, surveyid, year, demandmet_m_married,
-           gap_demandmet_m_married_hhw, region2)
+           gap_demandmet_m_married_hhw, UNSDsubregion)
 dtafig$region3<-"Other Regions"
 dtafig<-dtafig %>% mutate(
         region3= ifelse(
-                (region2=="Middle Africa" | region2=="Western Africa"),
+                (UNSDsubregion=="Middle Africa" | UNSDsubregion=="Western Africa" ),
                 "Central and Western Africa", 
                 region3), 	    
         region3= ifelse(
-                (region2=="Eastern Africa" | region2=="Southern Africa"),
+                (UNSDsubregion=="Eastern Africa" | UNSDsubregion=="Southern Africa"),
                 "Southern and Eastern Africa", 
                 region3)
     )
+
+table(dtafig$UNSDsubregion,dtafig$region3,exclude=NULL)
 
 dtafig1 <- dtafig%>% filter(region3=="Central and Western Africa")
 dtafig2 <- dtafig%>% filter(region3=="Southern and Eastern Africa")
 dtafig3 <- dtafig%>% filter(region3=="Other Regions")
 ```
-```{r figure2, warning=NA, fig.width=10}
+
+```{r figure2, warning=NA, fig.width=10, comment=NA}
 ggplot(dtafig1, aes(demandmet_m_married, gap_demandmet_m_married_hhw)) +             
     geom_point()+
     geom_line() +
